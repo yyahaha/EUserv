@@ -99,7 +99,7 @@ def check(sess_id, session):
     get_servers(sess_id, session)
     flag = True
     for key, val in SERVERS.items():
-        if not val:
+        if val:
             flag = False
             print("ServerID: %s Renew Error! Please Check" % key)
     if flag:
