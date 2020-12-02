@@ -51,7 +51,7 @@ def get_servers(sess_id, session) -> {}:
         server_id = tr.select('.td-z1-sp1-kc')
         if not len(server_id) == 1:
             continue
-        flag = True if tr.select('.kc2_order_action_container .kc2_order_extend_contract_term_container')[
+        flag = True if tr.select('.td-z1-sp2-kc .kc2_order_action_container')[
                            0].get_text().find('Contract extension possible from') == -1 else False
         d[server_id[0].get_text()] = flag
     return d
@@ -98,9 +98,9 @@ def renew(sess_id, session, password, order_id) -> bool:
 
 def check(sess_id, session):
     print("Checking.......")
-    get_servers(sess_id, session)
+    d = get_servers(sess_id, session)
     flag = True
-    for key, val in SERVERS.items():
+    for key, val in d.items():
         if val:
             flag = False
             print("ServerID: %s Renew Failed!" % key)
