@@ -109,6 +109,9 @@ def check(sess_id, session):
 
 
 if __name__ == "__main__":
+    if not USERNAME or not PASSWORD:
+        print("你没有添加任何账户")
+        exit(1)
     user_list = USERNAME.split(',')
     passwd_list = PASSWORD.split(',')
     if len(user_list) != len(passwd_list):
