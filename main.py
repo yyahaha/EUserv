@@ -6,23 +6,21 @@ from bs4 import BeautifulSoup
 
 USERNAME = os.environ["USERNAME"]
 PASSWORD = os.environ["PASSWORD"]
-SERVERS = {}
 PROXIES = {
     "http": "http://127.0.0.1:10809",
     "https": "http://127.0.0.1:10809"
 }
 
 
-def login() -> requests.session:
-    global PROXIES, USERNAME, PASSWORD
+def login(username, password) -> (str, requests.session):
     headers = {
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Chrome/83.0.4103.116 Safari/537.36",
         "origin": "https://www.euserv.com"
     }
     login_data = {
-        "email": USERNAME,
-        "password": PASSWORD,
+        "email": username,
+        "password": password,
         "form_selected_language": "en",
         "Submit": "Login",
         "subaction": "login"
@@ -32,15 +30,14 @@ def login() -> requests.session:
     f = session.post(url, headers=headers, data=login_data)
     f.raise_for_status()
     if f.text.find('Hello') == -1:
-        print("Login Failed! Please check your login details")
-        exit(1)
+        return '-1', session
     # print(f.request.url)
     sess_id = f.request.url[f.request.url.index('=') + 1:len(f.request.url)]
     return sess_id, session
 
 
-def get_servers(sess_id, session):
-    global SERVERS
+def get_servers(sess_id, session) -> {}:
+    d = {}
     url = "https://support.euserv.com/index.iphp?sess_id=" + sess_id
     headers = {
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -56,10 +53,11 @@ def get_servers(sess_id, session):
             continue
         flag = True if tr.select('.kc2_order_action_container .kc2_order_extend_contract_term_container')[
                            0].get_text().find('Contract extension possible from') == -1 else False
-        SERVERS[server_id[0].get_text()] = flag
+        d[server_id[0].get_text()] = flag
+    return d
 
 
-def renew(sess_id, session, order_id) -> bool:
+def renew(sess_id, session, password, order_id) -> bool:
     url = "https://support.euserv.com/index.iphp"
     headers = {
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -80,22 +78,13 @@ def renew(sess_id, session, order_id) -> bool:
         "sess_id": sess_id,
         "subaction": "kc2_security_password_get_token",
         "prefix": "kc2_customer_contract_details_extend_contract_",
-        "password": PASSWORD
+        "password": password
     }
     f = session.post(url, headers=headers, data=data)
     f.raise_for_status()
     if not json.loads(f.text)["rs"] == "success":
         return False
-    # print(f.text)
     token = json.loads(f.text)["token"]["value"]
-    # print(token)
-    # data = {
-    #     "sess_id": sess_id,
-    #     "subaction": "kc2_customer_contract_details_get_extend_contract_confirmation_dialog",
-    #     "token": token
-    # }
-    # f = session.post(url, headers=headers, data=data)
-    # print(f.text)
     data = {
         "sess_id": sess_id,
         "ord_id": order_id,
@@ -108,21 +97,39 @@ def renew(sess_id, session, order_id) -> bool:
 
 
 def check(sess_id, session):
+    print("Checking.......")
     get_servers(sess_id, session)
     flag = True
     for key, val in SERVERS.items():
         if val:
             flag = False
-            print("ServerID: %s Renew Error! Please Check" % key)
+            print("ServerID: %s Renew Failed!" % key)
     if flag:
         print("ALL Work Done! Enjoy")
 
 
 if __name__ == "__main__":
-    sessid, s = login()
-    get_servers(sessid, s)
-    for k, v in SERVERS.items():
-        if v:
-            if not renew(sessid, s, k):
-                print("ServerID: %s Renew Error! Please Check" % k)
-    check(sessid, s)
+    user_list = USERNAME.split(',')
+    passwd_list = PASSWORD.split(',')
+    if len(user_list) != len(passwd_list):
+        print("The number of usernames and passwords do not match!")
+        exit(1)
+    for i in range(len(user_list)):
+        print('*' * 30)
+        print("正在续费第 %d 个账号" % (i + 1))
+        sessid, s = login(user_list[i], passwd_list[i])
+        if sessid == '-1':
+            print("第 %d 个账号登陆失败，请检查登录信息" % (i + 1))
+            continue
+        SERVERS = get_servers(sessid, s)
+        print("检测到第 {} 个账号有 {} 台VPS，正在尝试续期".format(i + 1, len(SERVERS)))
+        for k, v in SERVERS.items():
+            if v:
+                if not renew(sessid, s, passwd_list[i], k):
+                    print("ServerID: %s Renew Error!" % k)
+            else:
+                print("ServerID: %s does not need to be renewed" % k)
+        time.sleep(15)
+        check(sessid, s)
+        time.sleep(5)
+    print('*' * 30)
