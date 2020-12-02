@@ -64,14 +64,18 @@ def renew(sess_id, session, order_id) -> bool:
     headers = {
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Chrome/83.0.4103.116 Safari/537.36",
-        "origin": "https://www.euserv.com",
-        "Referer": "https://support.euserv.com/index.iphp?sess_id="
-                   + sess_id
-                   + "&subaction=choose_order"
-                   + "&choose_order_subaction"
-                   + "=show_contract_details&ord_no="
-                   + order_id
+        "Host": "support.euserv.com",
+        "origin": "https://support.euserv.com",
+        "Referer": "https://support.euserv.com/index.iphp"
     }
+    data = {
+        "Submit": "Extend contract",
+        "sess_id": sess_id,
+        "ord_no": order_id,
+        "subaction": "choose_order",
+        "choose_order_subaction": "show_contract_details"
+    }
+    session.post(url, headers=headers, data=data)
     data = {
         "sess_id": sess_id,
         "subaction": "kc2_security_password_get_token",
@@ -80,10 +84,18 @@ def renew(sess_id, session, order_id) -> bool:
     }
     f = session.post(url, headers=headers, data=data)
     f.raise_for_status()
-    # print(f.text)
-    token = json.loads(f.text)["token"]["value"]
     if not json.loads(f.text)["rs"] == "success":
         return False
+    # print(f.text)
+    token = json.loads(f.text)["token"]["value"]
+    # print(token)
+    # data = {
+    #     "sess_id": sess_id,
+    #     "subaction": "kc2_customer_contract_details_get_extend_contract_confirmation_dialog",
+    #     "token": token
+    # }
+    # f = session.post(url, headers=headers, data=data)
+    # print(f.text)
     data = {
         "sess_id": sess_id,
         "ord_id": order_id,
